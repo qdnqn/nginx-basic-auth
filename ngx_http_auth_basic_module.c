@@ -2,6 +2,7 @@
 /*
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
+ * Modified by Adnan Selimovic
  */
 
 
@@ -104,22 +105,10 @@ ngx_module_t  ngx_http_auth_basic_module = {
 static ngx_int_t
 ngx_http_auth_basic_handler(ngx_http_request_t *r)
 {
-    //off_t                            offset;
-    //ssize_t                          n;
-    //ngx_fd_t                         fd;
     ngx_int_t                        rc;
-    //ngx_err_t                        err;
     ngx_str_t                        pwd;
     ngx_str_t                        realm, user_file;
-    //ngx_uint_t                       i, level, login, left, passwd;
-    //ngx_file_t                       file;
     ngx_http_auth_basic_loc_conf_t  *alcf;
-    //u_char                           buf[NGX_HTTP_AUTH_BUF_SIZE];
-    /*enum {
-        sw_login,
-        sw_passwd,
-        sw_skip
-    } state;*/
 
     alcf = ngx_http_get_module_loc_conf(r, ngx_http_auth_basic_module);
 
@@ -159,7 +148,7 @@ ngx_http_auth_basic_handler(ngx_http_request_t *r)
     struct timeval timeout = { 1, 500000 }; // 1.5 seconds
 		c = redisConnectWithTimeout((char *)alcf->redis_host.data, alcf->redis_port, timeout);
 		
-		/* HACK */
+		// convert ngx_str_t to char*
 		unsigned int i;
 		char username[r->headers_in.user.len+1];
 				
@@ -167,8 +156,7 @@ ngx_http_auth_basic_handler(ngx_http_request_t *r)
 			username[i] = r->headers_in.user.data[i];
 			
 		username[r->headers_in.user.len] = '\0';
-		/* END HACK */
-				
+						
 		reply = redisCommand(c,"HGETALL user:%s", username);
 				
 		unsigned int j;
@@ -204,117 +192,6 @@ ngx_http_auth_basic_handler(ngx_http_request_t *r)
     redisFree(c);
     
     return ngx_http_auth_basic_set_realm(r, &realm);
-
-    /*state = sw_login;
-    passwd = 0;
-    login = 0;
-    left = 0;
-    offset = 0;
-
-		
-    for ( ;; ) {
-        i = left;
-
-        n = ngx_read_file(&file, buf + left, NGX_HTTP_AUTH_BUF_SIZE - left,
-                          offset);
-
-        if (n == NGX_ERROR) {
-            ngx_http_auth_basic_close(&file);
-            return NGX_HTTP_INTERNAL_SERVER_ERROR;
-        }
-
-        if (n == 0) {
-            break;
-        }
-
-        for (i = left; i < left + n; i++) {
-            switch (state) {
-
-            case sw_login:
-                if (login == 0) {
-
-                    if (buf[i] == '#' || buf[i] == CR) {
-                        state = sw_skip;
-                        break;
-                    }
-
-                    if (buf[i] == LF) {
-                        break;
-                    }
-                }
-
-                if (buf[i] != r->headers_in.user.data[login]) {
-                    state = sw_skip;
-                    break;
-                }
-
-                if (login == r->headers_in.user.len) {
-                    state = sw_passwd;
-                    passwd = i + 1;
-                }
-
-                login++;
-
-                break;
-
-            case sw_passwd:
-                if (buf[i] == LF || buf[i] == CR || buf[i] == ':') {
-                    buf[i] = '\0';
-
-                    ngx_http_auth_basic_close(&file);
-
-                    pwd.len = i - passwd;
-                    pwd.data = &buf[passwd];
-
-                    return ngx_http_auth_basic_crypt_handler(r, &pwd, &realm);
-                }
-
-                break;
-
-            case sw_skip:
-                if (buf[i] == LF) {
-                    state = sw_login;
-                    login = 0;
-                }
-
-                break;
-            }
-        }
-
-        if (state == sw_passwd) {
-            left = left + n - passwd;
-            ngx_memmove(buf, &buf[passwd], left);
-            passwd = 0;
-
-        } else {
-            left = 0;
-        }
-
-        offset += n;
-    }
-		
-		
-    ngx_http_auth_basic_close(&file);
-
-    if (state == sw_passwd) {
-        pwd.len = i - passwd;
-        pwd.data = ngx_pnalloc(r->pool, pwd.len + 1);
-        if (pwd.data == NULL) {
-            return NGX_HTTP_INTERNAL_SERVER_ERROR;
-        }
-
-        ngx_cpystrn(pwd.data, &buf[passwd], pwd.len + 1);
-
-        return ngx_http_auth_basic_crypt_handler(r, &pwd, &realm);
-    }
-    
-
-    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                  "user \"%V\" was not found in \"%s\"",
-                  &r->headers_in.user, user_file.data);
-
-    return ngx_http_auth_basic_set_realm(r, &realm);
-    */
 }
 
 
